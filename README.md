@@ -1,9 +1,8 @@
-# Oficina: histórico por placa (demonstração)
+# Oficina em Dia
 
-Aplicativo de demonstração para oficinas mecânicas: histórico de serviços por placa, retornos de revisão e mensagens de WhatsApp prontas.
+Página de vendas pública e demonstração (dados fictícios).
 
-- Todos os dados são **fictícios** (20 carros de exemplo).
-- Tudo roda no navegador; os dados ficam salvos só no aparelho de quem usa (localStorage).
-- Em **Dados** há backup e restauração, e o botão para voltar aos dados de demonstração.
+- `index.html`: página de vendas (preencha o bloco `CONFIG` no fim do arquivo)
+- `demo/index.html`: demonstração com 20 carros fictícios
 
-Arquivo único: `index.html`.
+O sistema pago NÃO fica neste repositório público.
