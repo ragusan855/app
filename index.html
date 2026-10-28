@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Oficina: demonstração</title>
+<meta name="description" content="Demonstração de sistema de histórico por placa e lembrete de revisão para oficinas mecânicas. Dados fictícios.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f2ee;--card:#fff;--ink:#1b2430;--mut:#667085;--line:#d9d7cf;--brand:#1d3557;--onb:#fff;--acc:#e9b824;--bad:#b42318;--ok:#18794e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12171f;--card:#1b222c;--ink:#eceff3;--mut:#9aa4b2;--line:#2c3542;--brand:#6fa0e0;--onb:#0d1520;--bad:#f97066;--ok:#47cd89}}
+:root[data-theme="dark"]{--bg:#12171f;--card:#1b222c;--ink:#eceff3;--mut:#9aa4b2;--line:#2c3542;--brand:#6fa0e0;--onb:#0d1520;--bad:#f97066;--ok:#47cd89}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 Barlow,system-ui,sans-serif}
+.wrap{max-width:720px;margin:0 auto;padding:16px}
+h1,h2{font-family:'Barlow Condensed',Impact,sans-serif;margin:0}
+h1{font-size:30px;letter-spacing:.2px}
+h2{font-size:22px;margin-bottom:8px}
+header{border-bottom:4px solid var(--acc);padding-bottom:10px;margin-bottom:14px}
+header p{margin:2px 0 0;color:var(--mut)}
+nav{display:flex;gap:6px;margin-bottom:14px}
+nav button{flex:1;padding:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:600 15px Barlow,sans-serif;border-radius:6px;cursor:pointer}
+nav button[aria-selected=true]{background:var(--brand);color:var(--onb);border-color:var(--brand)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:14px;color:var(--mut);margin:8px 0 3px}
+input,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:16px Barlow,sans-serif}
+input:focus,textarea:focus,button:focus-visible,a:focus-visible{outline:3px solid var(--acc);outline-offset:1px}
+#placa{font:700 26px 'Barlow Condensed',sans-serif;letter-spacing:3px;text-transform:uppercase}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{display:inline-block;padding:10px 14px;border:0;border-radius:6px;background:var(--brand);color:var(--onb);font:600 15px Barlow,sans-serif;cursor:pointer;text-decoration:none;margin-top:10px}
+.btn.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.wa{background:#1f9d55;color:#fff}
+.btn.del{background:transparent;color:var(--bad);border:1px solid var(--line)}
+.plate{display:inline-block;font:700 22px 'Barlow Condensed',sans-serif;letter-spacing:3px;border:2px solid var(--ink);border-radius:4px;padding:0 8px;margin-right:8px}
+.mut{color:var(--mut);font-size:14px}
+.svc{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+.svc b{font-family:'Barlow Condensed',sans-serif;font-size:18px}
+.tag{font-weight:600}.late{color:var(--bad)}.soon{color:var(--ok)}
+.item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.item:first-of-type{border-top:0}
+.link{background:none;border:0;color:var(--ink);font:600 16px Barlow,sans-serif;text-align:left;cursor:pointer;padding:0}
+@media(max-width:420px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><h1 id="titulo">Oficina</h1><p>Histórico de cada carro, pela placa. <b>Versão de demonstração com 20 carros fictícios.</b></p></header>
+<nav role="tablist">
+<button role="tab" data-t="buscar">Buscar placa</button>
+<button role="tab" data-t="retornos">Retornos</button>
+<button role="tab" data-t="dados">Dados</button>
+</nav>
+<main id="app"></main>
+</div>
+<script>
+const KEY='oficina_demo_v1';
+let db={oficina:'',veiculos:{}};
+try{const r=localStorage.getItem(KEY);if(r)db=Object.assign(db,JSON.parse(r))}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}};
+const $=s=>document.querySelector(s);
+const norm=p=>(p||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+const brl=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const fd=s=>s?s.split('-').reverse().join('/'):'';
+const hoje=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function el(tag,a={},...kids){const e=document.createElement(tag);for(const k in a){if(k==='class')e.className=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k])}kids.flat().filter(c=>c!=null&&c!==false).forEach(c=>e.append(c));return e}
+function field(label,id,attrs={},area){const i=area?el('textarea',Object.assign({id,rows:2},attrs)):el('input',Object.assign({id},attrs));return el('div',{},el('label',{for:id},label),i)}
+function wa(tel,msg){let d=(tel||'').replace(/\D/g,'');if(d.length<=11&&d)d='55'+d;return 'https://wa.me/'+d+'?text='+encodeURIComponent(msg)}
+const nomeOf=()=>db.oficina||'oficina';
+let tab='buscar',cur=null,delId=null;
+
+function setTab(t){tab=t;if(t!=='buscar')cur=null;render()}
+document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.t)));
+
+function render(){
+  $('#titulo').textContent=db.oficina||'Oficina';
+  document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===tab));
+  const app=$('#app');app.replaceChildren();
+  if(tab==='buscar')app.append(...viewBuscar());
+  else if(tab==='retornos')app.append(...viewRetornos());
+  else app.append(...viewDados());
+}
+
+function lastDate(v){return v.servicos.reduce((m,s)=>s.data>m?s.data:m,'')}
+
+function viewBuscar(){
+  const out=[];
+  const inp=el('input',{id:'placa',placeholder:'ABC1D23',autocomplete:'off',maxlength:'8','aria-label':'Placa do carro'});
+  const f=el('form',{class:'card',onsubmit:e=>{e.preventDefault();const p=norm(inp.value);if(!p)return;cur=p;delId=null;render()}},
+    el('label',{for:'placa'},'Digite a placa do carro'),inp,el('button',{class:'btn',type:'submit'},'Buscar ou cadastrar'));
+  out.push(f);
+  if(!cur){
+    const vs=Object.values(db.veiculos).sort((a,b)=>lastDate(b).localeCompare(lastDate(a))).slice(0,8);
+    const c=el('div',{class:'card'},el('h2',{},'Últimos carros'));
+    if(!vs.length)c.append(el('p',{class:'mut'},'Nenhum carro cadastrado ainda. Digite uma placa acima para começar.'));
+    vs.forEach(v=>c.append(el('div',{class:'item'},el('button',{class:'link',onclick:()=>{cur=v.placa;render()}},el('span',{class:'plate'},v.placa),v.modelo||''),el('span',{class:'mut'},v.cliente||''))));
+    out.push(c);return out;
+  }
+  const v=db.veiculos[cur];
+  if(!v){
+    const f2=el('form',{class:'card',onsubmit:e=>{e.preventDefault();
+      db.veiculos[cur]={placa:cur,cliente:$('#cli').value.trim(),tel:$('#tel').value.trim(),modelo:$('#mod').value.trim(),servicos:[]};save();render()}},
+      el('h2',{},'Novo carro: '+cur),
+      field('Nome do cliente','cli',{required:''}),field('Telefone (com DDD)','tel',{type:'tel',inputmode:'tel'}),field('Modelo do carro','mod',{placeholder:'Ex.: Gol 1.0 2015'}),
+      el('button',{class:'btn',type:'submit'},'Cadastrar carro'));
+    out.push(f2);return out;
+  }
+  out.push(el('div',{class:'card'},el('span',{class:'plate'},v.placa),el('b',{},v.modelo||'Modelo não informado'),
+    el('p',{class:'mut',style:'margin:6px 0 0'},v.cliente+(v.tel?' · '+v.tel:''))));
+  const sf=el('form',{class:'card',onsubmit:e=>{e.preventDefault();
+    v.servicos.push({id:uid(),data:$('#sd').value,km:$('#sk').value,desc:$('#sx').value.trim(),pecas:$('#sp').value.trim(),valor:$('#sv').value,retorno:$('#sr').value});
+    save();render()}},
+    el('h2',{},'Registrar serviço'),
+    el('div',{class:'row'},field('Data','sd',{type:'date',value:hoje(),required:''}),field('Quilometragem','sk',{type:'number',inputmode:'numeric',min:'0'})),
+    field('O que foi feito','sx',{required:''},true),
+    field('Peças trocadas','sp',{placeholder:'Ex.: filtro de óleo, pastilha'}),
+    el('div',{class:'row'},field('Valor (R$)','sv',{type:'number',step:'0.01',min:'0',inputmode:'decimal'}),field('Avisar o cliente em','sr',{type:'date'})),
+    el('button',{class:'btn',type:'submit'},'Salvar serviço'));
+  out.push(sf);
+  const h=el('div',{class:'card'},el('h2',{},'Histórico'));
+  if(!v.servicos.length)h.append(el('p',{class:'mut'},'Ainda sem serviços neste carro. Registre o primeiro acima.'));
+  [...v.servicos].sort((a,b)=>b.data.localeCompare(a.data)).forEach(s=>{
+    const msg='Olá, '+v.cliente+'! Resumo do serviço no seu '+(v.modelo||'carro')+' (placa '+v.placa+') em '+fd(s.data)+': '+s.desc+(s.pecas?'. Peças: '+s.pecas:'')+(s.valor?'. Total: '+brl(s.valor):'')+'. — '+nomeOf();
+    h.append(el('div',{class:'svc'},
+      el('b',{},fd(s.data)+(s.km?' · '+Number(s.km).toLocaleString('pt-BR')+' km':'')),
+      el('div',{},s.desc),s.pecas?el('div',{class:'mut'},'Peças: '+s.pecas):null,
+      el('div',{class:'mut'},(s.valor?brl(s.valor):'Sem valor')+(s.retorno?' · Retorno: '+fd(s.retorno):'')),
+      el('a',{class:'btn wa',href:wa(v.tel,msg),target:'_blank',rel:'noopener'},'Enviar no WhatsApp'),' ',
+      el('button',{class:'btn del',onclick:()=>{if(delId===s.id){v.servicos=v.servicos.filter(x=>x.id!==s.id);delId=null;save()}else delId=s.id;render()}},delId===s.id?'Toque de novo para excluir':'Excluir')));
+  });
+  out.push(h);return out;
+}
+
+function viewRetornos(){
+  const t0=new Date(hoje()+'T00:00:00');const lista=[];
+  Object.values(db.veiculos).forEach(v=>{
+    const s=v.servicos.filter(x=>x.retorno).sort((a,b)=>b.data.localeCompare(a.data))[0];
+    if(!s)return;
+    const dias=Math.round((new Date(s.retorno+'T00:00:00')-t0)/864e5);
+    if(dias<=30)lista.push({v,s,dias});
+  });
+  lista.sort((a,b)=>a.dias-b.dias);
+  const c=el('div',{class:'card'},el('h2',{},'Clientes para chamar'),el('p',{class:'mut'},'Carros com retorno vencido ou nos próximos 30 dias.'));
+  if(!lista.length)c.append(el('p',{},'Nenhum retorno a combinar. Ao registrar um serviço, preencha "Avisar o cliente em".'));
+  lista.forEach(({v,s,dias})=>{
+    const txt=dias<0?'Atrasado há '+(-dias)+' dia(s)':dias===0?'É hoje':'Em '+dias+' dia(s)';
+    const msg='Olá, '+v.cliente+'! Aqui é da '+nomeOf()+'. Está chegando a hora da revisão do seu '+(v.modelo||'carro')+' (placa '+v.placa+'). Quer agendar um horário?';
+    c.append(el('div',{class:'item'},
+      el('div',{},el('span',{class:'plate'},v.placa),el('b',{},v.cliente),el('div',{class:'tag '+(dias<0?'late':'soon')},txt+' · '+fd(s.retorno))),
+      el('a',{class:'btn wa',href:wa(v.tel,msg),target:'_blank',rel:'noopener'},'Chamar no WhatsApp')));
+  });
+  return [c];
+}
+
+function viewDados(){
+  const n=Object.keys(db.veiculos).length,ns=Object.values(db.veiculos).reduce((a,v)=>a+v.servicos.length,0);
+  const nome=el('input',{id:'on',value:db.oficina,placeholder:'Ex.: Auto Mecânica do Zé'});
+  nome.addEventListener('change',()=>{db.oficina=nome.value.trim();save();$('#titulo').textContent=db.oficina||'Oficina'});
+  const msg=el('p',{class:'mut',role:'status'});
+  const imp=el('input',{type:'file',accept:'application/json,.json','aria-label':'Arquivo de backup'});
+  imp.addEventListener('change',async()=>{
+    try{const d=JSON.parse(await imp.files[0].text());if(!d||typeof d.veiculos!=='object')throw 0;db=Object.assign({oficina:'',veiculos:{}},d);save();render()}
+    catch(e){msg.textContent='Arquivo inválido. Use um backup gerado por este app.'}
+  });
+  return [
+    el('div',{class:'card'},el('h2',{},'Nome da oficina'),el('label',{for:'on'},'Aparece nas mensagens de WhatsApp'),nome),
+    el('div',{class:'card'},el('h2',{},'Demonstração'),el('p',{class:'mut'},'Apaga o que foi digitado e volta aos 20 carros fictícios.'),el('button',{class:'btn alt',onclick:e=>{if(window._r){window._r=0;seed();render()}else{window._r=1;e.target.textContent='Toque de novo para restaurar'}}},'Restaurar dados de demonstração')),
+    el('div',{class:'card'},el('h2',{},'Resumo'),el('p',{},n+' carro(s) e '+ns+' serviço(s) registrados.')),
+    el('div',{class:'card'},el('h2',{},'Backup'),
+      el('p',{class:'mut'},'Os dados ficam salvos neste aparelho e neste navegador. Baixe um backup toda semana e guarde no Google Drive ou no WhatsApp.'),
+      el('button',{class:'btn',onclick:async()=>{
+        try{const fn='backup-oficina-'+hoje()+'.json',txt=JSON.stringify(db,null,1);
+          const u=document.createElement('a');u.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));u.download=fn;
+          document.body.append(u);u.click();u.remove();setTimeout(()=>URL.revokeObjectURL(u.href),4000);msg.textContent='Backup baixado.'}
+        catch(e){msg.textContent='Não foi possível baixar o backup.'}
+      }},'Baixar backup'),
+      el('label',{},'Restaurar de um backup'),imp,msg)
+  ];
+}
+
+function addD(n){const d=new Date(hoje()+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)}
+const DEMO=[
+["QRT4B21","Marcos Oliveira","(11) 90000-0001","VW Gol 1.0 2014",[[210,142300,"Troca de óleo e filtros","óleo 5W30, filtro de óleo, filtro de ar",280,-30],[40,148900,"Pastilhas de freio dianteiras trocadas e disco retificado","pastilha dianteira",390,null]]],
+["FJK2C58","Patrícia Souza","(11) 90000-0002","Chevrolet Onix 1.4 2018",[[95,67200,"Revisão de 60 mil km: óleo, filtros e velas","óleo 5W30, 4 filtros, jogo de velas",760,-3]]],
+["BXM7D90","Roberto Lima","(11) 90000-0003","Hyundai HB20 2017",[[120,81000,"Ar-condicionado sem gelar: recarga de gás e troca do filtro de cabine","gás R134a, filtro de cabine",320,60]]],
+["LPA9E14","Fernanda Costa","(11) 90000-0004","Fiat Palio 1.0 2012",[[18,163500,"Barulho na suspensão dianteira: troca de buchas e pivôs","kit de buchas, 2 pivôs",540,10],[260,158000,"Troca da correia dentada e do tensor","kit correia dentada",690,null]]],
+["TUV3F77","José Almeida","(11) 90000-0005","Toyota Corolla 2.0 2019",[[170,58400,"Troca de óleo sintético, alinhamento e balanceamento","óleo 0W20, filtro de óleo",620,0]]],
+["NDC8G05","Camila Rocha","(11) 90000-0006","Honda Civic 2016",[[75,98000,"Carro falhando em marcha lenta: limpeza dos bicos e troca das velas","velas, limpeza de bicos",480,45]]],
+["WZH1H32","Anderson Pereira","(11) 90000-0007","Toyota Hilux 2.8 diesel 2020",[[130,112000,"Troca do óleo e dos filtros de diesel","óleo 15W40, filtro de diesel, filtro separador",890,-12]]],
+["KLS5J63","Luciana Martins","(11) 90000-0008","Fiat Strada 2015",[[55,121000,"Embreagem patinando: troca do kit de embreagem","kit de embreagem",1450,90],[300,112500,"Troca das pastilhas traseiras","pastilha traseira",260,null]]],
+["YPQ6K18","Paulo Henrique Dias","(11) 90000-0009","Ford Ka 1.0 2016",[[8,89000,"Superaquecimento: troca da válvula termostática e do aditivo","válvula termostática, aditivo",410,22]]],
+["GHE2L46","Juliana Ferreira","(11) 90000-0010","Jeep Compass 2021",[[160,44500,"Revisão de 40 mil km","óleo, filtros, fluido de freio",1180,-20]]],
+["DRB4M29","Sérgio Nunes","(11) 90000-0011","Chevrolet S10 2013",[[22,205000,"Vazamento de óleo no cárter: troca da junta","junta do cárter, óleo",530,6],[190,198000,"Troca dos amortecedores traseiros","2 amortecedores",780,null]]],
+["SMV8N51","Aline Barbosa","(11) 90000-0012","Renault Kwid 2022",[[110,23000,"Primeira revisão: óleo e filtros","óleo, filtro de óleo",330,-45]]],
+["CTX3P84","Carlos Eduardo Ramos","(11) 90000-0013","VW Saveiro 2011",[[35,231000,"Bateria arriada e alternador com defeito: troca de ambos","bateria 60Ah, alternador recondicionado",1090,70]]],
+["JBN6Q07","Mariana Teixeira","(11) 90000-0014","Hyundai Creta 2020",[[60,52000,"Barulho ao frear: troca de pastilhas e discos dianteiros","pastilhas, 2 discos",980,50]]],
+["VAD9R36","Ricardo Gomes","(11) 90000-0015","Fiat Fiorino 2017 (entregas)",[[14,176000,"Troca de óleo, filtro de combustível e revisão dos freios","óleo, filtros",610,4],[120,168000,"Troca dos 4 pneus","4 pneus 175/70 R14",1280,null]]],
+["HFG1S92","Beatriz Cardoso","(11) 90000-0016","Honda Fit 2014",[[85,134000,"Câmbio CVT com trancos: troca do óleo da transmissão","óleo CVT, filtro",740,-7]]],
+["MKT7T15","Thiago Araújo","(11) 90000-0017","Ford Ranger 3.2 2018",[[28,96000,"Luz da injeção acesa: diagnóstico com scanner e troca do sensor de oxigênio","sensor de oxigênio",670,40]]],
+["PZR2U68","Eliane Vieira","(11) 90000-0018","Renault Sandero 2015",[[200,102000,"Troca do kit de embreagem e do cabo","kit de embreagem, cabo",1380,null],[30,108400,"Troca de lâmpadas e regulagem dos faróis","2 lâmpadas H4",120,null]]],
+["XLC5V43","Gustavo Mendes","(11) 90000-0019","Honda CG 160 (moto) 2021",[[45,18500,"Troca da relação (coroa, pinhão e corrente) e do óleo","kit relação, óleo 10W30",430,-1]]],
+["ADN0W77","Wagner Carvalho","(11) 90000-0020","Mercedes-Benz Sprinter 2016",[[9,289000,"Vazamento na direção hidráulica: troca da mangueira e do fluido","mangueira, fluido",570,18],[240,274000,"Troca das pastilhas e dos discos dianteiros","pastilhas, discos",1650,null]]]
+];
+function seed(){db.oficina='Auto Center Demo';db.veiculos={};DEMO.forEach(([p,c,t,m,ss])=>{db.veiculos[p]={placa:p,cliente:c,tel:t,modelo:m,servicos:ss.map(([a,km,d,pc,v,r])=>({id:uid(),data:addD(-a),km:String(km),desc:d,pecas:pc,valor:String(v),retorno:r===null?'':addD(r)}))}});save()}
+if(!Object.keys(db.veiculos).length)seed();
+render();
+</script>
+</body>
+</html>
